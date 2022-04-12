@@ -68,18 +68,18 @@ pub fn snapshot_internal<V: Debug>(
             this_file_path.push(file);
 
             if let Some(snapshot) = snapshot {
-                let need_updating = snapshot_matching_message(&value_str, snapshot).is_some();
+                let message = snapshot_matching_message(&value_str, snapshot);
 
-                if need_updating {
+                if message.is_some() {
                     let mode = UpdateInlineSnapshotMode::Replace;
                     schedule_snapshot_update(this_file_path, line, &value_str, mode).unwrap();
                 }
+                Ok(message)
             } else {
                 let mode = UpdateInlineSnapshotMode::Create;
                 schedule_snapshot_update(this_file_path, line, &value_str, mode).unwrap();
-            };
-
-            Ok(None)
+                Ok(Some(empty_snapshot_message(&value_str)))
+            }
         }
     }
 }
