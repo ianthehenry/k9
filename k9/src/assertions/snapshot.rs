@@ -283,7 +283,10 @@ fn update_inline_snapshots(mut file: SourceFile) -> Result<()> {
 /// can be either compared to existing snapshot or used as a value to
 /// update snapshots to.
 fn value_to_string<V: Debug>(value: V) -> String {
-    let mut s = format!("{:#?}", value);
+    let mut s = format!("{:?}", value);
+    if s.len() > 80 {
+        s = format!("{:#?}", value);
+    }
 
     // Undebug string newlines.
     // Formatting string as `Debug` escapes all newline characters
