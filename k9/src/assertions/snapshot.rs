@@ -2,6 +2,7 @@ use crate::snapshot::ast;
 use crate::snapshot::source_code;
 use crate::snapshot::source_code::Range;
 use crate::types;
+use crate::types::UpdateMode;
 use anyhow::{Context, Result};
 use colored::*;
 use lazy_static::lazy_static;
@@ -53,9 +54,11 @@ pub fn snapshot_internal<V: Debug>(
 ) -> Result<Option<String>> {
     let value_str = value_to_string(value);
     match (snapshot, crate::config::CONFIG.update_mode) {
-        (Some(snapshot), false) => Ok(snapshot_matching_message(&value_str, snapshot)),
-        (None, false) => Ok(Some(empty_snapshot_message(&value_str))),
-        (_, true) => {
+        (Some(snapshot), UpdateMode::NoUpdate) => {
+            Ok(snapshot_matching_message(&value_str, snapshot))
+        }
+        (None, UpdateMode::NoUpdate) => Ok(Some(empty_snapshot_message(&value_str))),
+        (_, UpdateMode::Corrected | UpdateMode::InPlace) => {
             let line = line as usize;
 
             let crate_root =
@@ -126,7 +129,12 @@ impl SourceFile {
     }
 
     pub fn write(&self) {
-        std::fs::write(&self.path, &self.content).unwrap();
+        let dest = match crate::config::CONFIG.update_mode {
+            UpdateMode::InPlace => self.path.clone(),
+            UpdateMode::Corrected => self.path.clone() + ".corrected",
+            UpdateMode::NoUpdate => panic!("unreachable"),
+        };
+        std::fs::write(&dest, &self.content).unwrap();
     }
 
     pub fn format(&mut self) {

@@ -1,3 +1,4 @@
+use crate::types::UpdateMode;
 use colored::*;
 use lazy_static::lazy_static;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -8,7 +9,7 @@ pub struct Config {
     /// 0 === disabled
     pub terminal_width_override: AtomicUsize,
     // Snapshot update mode
-    pub update_mode: bool,
+    pub update_mode: UpdateMode,
     /// Whether this binary is built with buck
     pub built_with_buck: bool,
     /// Whether we should always enable colored output
@@ -19,7 +20,7 @@ lazy_static! {
     pub static ref CONFIG: Config = Config {
         assertions_will_panic: AtomicBool::new(true),
         terminal_width_override: AtomicUsize::new(0),
-        update_mode: is_update_mode(),
+        update_mode: update_mode(),
         built_with_buck: is_buck_build(),
         force_enable_colors: should_force_enable_colors(),
     };
@@ -47,22 +48,29 @@ fn is_buck_build() -> bool {
     std::env::var("BUCK_BUILD_ID").is_ok()
 }
 
-fn is_update_mode() -> bool {
+fn update_mode() -> UpdateMode {
     // If runtime ENV variable is set, it takes precedence
-    let runtime_var = std::env::var("K9_UPDATE_SNAPSHOTS").map_or(false, |_| true);
-
-    if !runtime_var && is_buck_build() {
-        // If not, we'll also check compile time variable. This is going to be the case with `buck`
-        // when env variables are passed to `rustc` but not to the actual binary (when running `buck test ...`)
-        //
-        // NOTE: using compile time vars is a bit sketchy, because technically you can compile the test suite
-        // once and re-run the compiled version multiple times in scenarios where you don't want to update
-        if option_env!("K9_UPDATE_SNAPSHOTS").is_some() {
-            return true;
-        }
-    }
+    let runtime_var = std::env::var("K9_UPDATE_SNAPSHOTS").ok();
+    // If not, we'll also check compile time variable. This is going to be the case with `buck`
+    // when env variables are passed to `rustc` but not to the actual binary (when running `buck test ...`)
+    //
+    // NOTE: using compile time vars is a bit sketchy, because technically you can compile the test suite
+    // once and re-run the compiled version multiple times in scenarios where you don't want to update
+    let compile_var = if is_buck_build() {
+        option_env!("K9_UPDATE_SNAPSHOTS").map(|x| x.to_string())
+    } else {
+        None
+    };
 
     runtime_var
+        .or(compile_var)
+        .map_or(UpdateMode::NoUpdate, |value| {
+            if value == "corrected" {
+                UpdateMode::Corrected
+            } else {
+                UpdateMode::InPlace
+            }
+        })
 }
 
 fn should_force_enable_colors() -> bool {

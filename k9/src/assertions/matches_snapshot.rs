@@ -1,4 +1,5 @@
 use crate::string_diff::colored_diff;
+use crate::types::UpdateMode;
 use anyhow::{Context, Result};
 use colored::*;
 use std::path::{Path, PathBuf};
@@ -65,7 +66,7 @@ pub fn snap_internal<T: std::fmt::Display>(
     let string_desc = "string".red();
     let snapshot_desc = "snapshot".green();
 
-    if crate::config::CONFIG.update_mode {
+    if let UpdateMode::NoUpdate = crate::config::CONFIG.update_mode {
         ensure_snap_dir_exists(&absolute_snap_path).unwrap();
         std::fs::write(&absolute_snap_path, thing_str).unwrap();
         None
